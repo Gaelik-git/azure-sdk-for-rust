@@ -3,6 +3,8 @@ name: Build and Test
 on:
   pull_request:
   push:
+  schedule:
+    - cron: "0 0 * * 0"
 
 env:
   RUSTFLAGS: -Dwarnings
@@ -18,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - id: get_msrv
         run: |
-          MSRV=$(cargo metadata --format-version=1 --no-deps  | jq '.packages[] | select(.name == "azure_core").rust_version' -r)
+          MSRV=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "azure_core").rust_version' -r)
           echo setting msrv to ${MSRV}
           echo msrv=${MSRV} >> "$GITHUB_OUTPUT"
 
@@ -112,7 +114,9 @@ jobs:
         experimental:
           - false
         include:
+          - no_clippy: false
           - build: nightly
+            no_clippy: ${{ github.event_name != 'scheduled' }}
             experimental: true
     steps:
       - uses: actions/checkout@v4
@@ -120,6 +124,8 @@ jobs:
         with:
           workspaces: services
       - run: eng/scripts/services_tests.sh ${{ matrix.build }}
+        env:
+          NO_CLIPPY: ${{ matrix.no_clippy }}
       - name: display free disk space
         run: df -h /
         if: ${{ always() }}
